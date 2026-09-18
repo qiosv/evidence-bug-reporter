@@ -1,0 +1,15 @@
+{
+  "id": "test-c",
+  "title": "Unsupported claim — filter remains Active",
+  "status": "claimed_not_observed",
+  "essentialVisibleSteps": [
+    "filter changed to Active",
+    "page 2 clicked",
+    "status filter remained Active"
+  ],
+  "speakerClaims": [
+    "the filter reset"
+  ],
+  "observedFailure": null,
+  "unknownsInclude": ["root cause"]
+}

@@ -1,0 +1,16 @@
+{
+  "id": "test-b",
+  "title": "Missing narration — silent actions",
+  "status": "confirmed",
+  "essentialVisibleSteps": [
+    "filter changed to Active",
+    "page 2 clicked",
+    "status filter reset to All"
+  ],
+  "speakerClaims": [
+    "I will reproduce the issue",
+    "the filter reset"
+  ],
+  "observedFailure": "status filter reset to All after pagination",
+  "unknownsInclude": ["root cause"]
+}

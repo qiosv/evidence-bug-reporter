@@ -1,0 +1,61 @@
+{
+  "instructions": "Do not watch tests/fixtures/test-a.mp4 first. Open http://localhost:5173/demo and follow only this report. Record whether you reproduced the visible failure, how long it took, and notes. Do not invent a result.",
+  "demoUrl": "http://localhost:5173/demo",
+  "report": {
+    "title": "Navigating to Page 2 unexpectedly resets the selected status filter from Active",
+    "status": "confirmed",
+    "startingConditions": [
+      {
+        "text": "Northwind Catalog product listing is open, status filter All is selected, Page 1 is active.",
+        "source": "visible",
+        "timestampMs": 0,
+        "established": true
+      }
+    ],
+    "steps": [
+      {
+        "index": 1,
+        "description": "Click the Active status filter.",
+        "timestampMs": 3000,
+        "source": "visible"
+      },
+      {
+        "index": 2,
+        "description": "Selected filter changes to Active and the product list updates.",
+        "timestampMs": 3000,
+        "source": "visible"
+      },
+      {
+        "index": 3,
+        "description": "Click Page 2.",
+        "timestampMs": 7000,
+        "source": "visible"
+      },
+      {
+        "index": 4,
+        "description": "Page 2 becomes active and the selected filter reverts to All, showing inactive products.",
+        "timestampMs": 7000,
+        "source": "visible"
+      }
+    ],
+    "observedFailure": {
+      "text": "Navigating to Page 2 unexpectedly resets the selected status filter from Active back to All.",
+      "source": "visible",
+      "timestampMs": 7000,
+      "established": true
+    },
+    "expectedBehavior": {
+      "value": null,
+      "established": false,
+      "source": "Not established by evidence. Conventional UI persistence is not treated as fact."
+    },
+    "summary": "Visible failure: Page 2 resets the Active filter to All. Root cause: unknown."
+  },
+  "humanTest": {
+    "tester": "pending",
+    "sawOriginalRecording": false,
+    "reproduced": null,
+    "time": null,
+    "notes": "Leave blank until a second person actually runs the demo from this report."
+  }
+}

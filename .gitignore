@@ -1,0 +1,16 @@
+node_modules
+dist
+out
+tmp
+.DS_Store
+.eslintcache
+*.log*
+.env
+.env.local
+.env.*.local
+tests/results
+uploads
+*.webm
+coverage
+.cursor
+

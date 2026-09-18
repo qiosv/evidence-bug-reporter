@@ -1,0 +1,20 @@
+{
+  "id": "test-a",
+  "title": "Normal case — narrated reproduction",
+  "status": "confirmed",
+  "essentialVisibleSteps": [
+    "catalog opened with Status All",
+    "filter changed to Active",
+    "filtered Active products visible",
+    "page 2 clicked",
+    "status filter reset to All"
+  ],
+  "speakerClaims": [
+    "catalog is open and filter is All",
+    "changing filter to Active",
+    "click page two",
+    "the filter reset"
+  ],
+  "observedFailure": "status filter reset to All after pagination",
+  "unknownsInclude": ["root cause", "browser version"]
+}
