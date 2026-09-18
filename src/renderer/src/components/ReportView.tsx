@@ -14,6 +14,7 @@ interface Props {
   result: AnalyzeSuccess
   video: HTMLVideoElement | null
   onSeek: (timestampMs: number) => void
+  onAnalyzeAnother?: () => void
 }
 
 const OUTCOME_LABEL: Record<PrimaryFinding['outcome'], string> = {
@@ -23,7 +24,7 @@ const OUTCOME_LABEL: Record<PrimaryFinding['outcome'], string> = {
   insufficient_evidence: 'INSUFFICIENT EVIDENCE'
 }
 
-export function ReportView({ result, video, onSeek }: Props): JSX.Element {
+export function ReportView({ result, video, onSeek, onAnalyzeAnother }: Props): JSX.Element {
   const { report, metrics } = result
   const finding = report.primaryFinding
   const [frames, setFrames] = useState<Record<number, string>>({})
@@ -67,6 +68,13 @@ export function ReportView({ result, video, onSeek }: Props): JSX.Element {
 
   return (
     <article className="report">
+      {onAnalyzeAnother && (
+        <div className="report-actions">
+          <button type="button" className="btn-primary" onClick={onAnalyzeAnother}>
+            Analyze another video
+          </button>
+        </div>
+      )}
       <PrimaryFindingCard finding={finding} frame={frameAt(frames, finding.timestampMs)} onSeek={onSeek} />
 
       {previewItems.length > 0 && (

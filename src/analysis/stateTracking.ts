@@ -74,8 +74,23 @@ export function isContentState(kind?: string, name?: string): boolean {
   return /result|list|table|grid|item|feed|content|output|collection|rows/i.test(blob(kind, name))
 }
 
+/**
+ * Independent chosen/entered control state. A selection readout is still a constraint
+ * even if the model tagged it as list/result chrome.
+ */
+function isIndependentStickyControl(kind?: string, name?: string): boolean {
+  if (isNavigationState(kind, name)) return false
+  const namedConstraint =
+    /select|option|toggle|check|radio|switch|status|urgency|priority|assignee|preferenc|setting|entered|typed|query|search/i.test(
+      name ?? ''
+    )
+  if (isContentState(kind, name) && !namedConstraint) return false
+  return isStickyState(kind, name) || namedConstraint
+}
+
 /** Derived view chrome: result lists, pager position, counts — not independent entered/selected values. */
 export function isDerivedViewState(kind?: string, name?: string): boolean {
+  if (isIndependentStickyControl(kind, name)) return false
   return (
     isContentState(kind, name) ||
     isNavigationState(kind, name) ||
@@ -117,6 +132,13 @@ export function interactionChoosesValue(observation: StateObservation, value: st
   const raw = value.trim()
   if (!raw) return false
   if (observation.actedOn && valuesEqual(observation.actedOn, raw)) return true
+  if (
+    observation.actedOn &&
+    !valuesEqual(observation.actedOn, raw) &&
+    !tokenOverlap(observation.actedOn, raw)
+  ) {
+    return false
+  }
   const needle = escapeRegExp(raw)
   const hay = interactionBlob(observation)
   const targeted = new RegExp(
@@ -164,18 +186,27 @@ function isTypingOrClearing(observation: StateObservation): boolean {
   return (
     /\b(type(?:s|d)?|enter(?:s|ed)?|fill(?:s|ed)?|wrote|write|paste(?:d)?|delete(?:s|d)?|backspace|erase(?:s|d)?|remove(?:s|d)? text)\b/i.test(
       observation.interaction
-    ) || /\bclear(?:s|ed)?\s+\S/i.test(observation.interaction)
+    ) || /\bclear(?:s|ed)?\s+(?!or\b|and\b)(?:the |this |that )?\S/i.test(observation.interaction)
   )
+}
+
+function actionNamesThisControl(observation: StateObservation, name: string, kind?: string): boolean {
+  const acted = observation.actedOn ?? ''
+  if (acted && tokenOverlap(name, acted)) return true
+  if (acted && kind && tokenOverlap(kind, acted)) return true
+  const interactionNamesThis =
+    tokenOverlap(name, observation.interaction) && !isContentState(kind, name)
+  if (!interactionNamesThis) return false
+  // Side-effects mentioned in the interaction prose are not the action target
+  // when actedOn already names a different control/entity.
+  if (acted && !tokenOverlap(name, acted) && !tokenOverlap(kind ?? '', acted)) return false
+  return true
 }
 
 function targetsProperty(observation: StateObservation, prop: StateProperty): boolean {
   const acted = observation.actedOn ?? ''
   if (acted && valuesEqual(prop.value, acted)) return true
-  if (acted && tokenOverlap(prop.name, acted)) return true
-  if (acted && prop.kind && tokenOverlap(prop.kind, acted)) return true
-  if (tokenOverlap(prop.name, observation.interaction) && !isContentState(prop.kind, prop.name)) {
-    return true
-  }
+  if (actionNamesThisControl(observation, prop.name, prop.kind)) return true
   if (
     isNavigationState(observation.actedOnKind, observation.actedOn, observation.interaction) &&
     isNavigationState(prop.kind, prop.name)
@@ -192,9 +223,7 @@ function targetedDifferentControl(change: StateChange, observation: StateObserva
   }
   const acted = observation.actedOn ?? ''
   if (acted && (tokenOverlap(change.name, acted) || valuesEqual(acted, change.after))) return false
-  if (tokenOverlap(change.name, observation.interaction) && !isContentState(change.kind, change.name)) {
-    return false
-  }
+  if (actionNamesThisControl(observation, change.name, change.kind)) return false
   if (
     isNavigationState(observation.actedOnKind, observation.actedOn, observation.interaction) &&
     isNavigationState(change.kind, change.name)
@@ -206,6 +235,7 @@ function targetedDifferentControl(change: StateChange, observation: StateObserva
 
 function isConsequentialContent(change: StateChange, observation: StateObservation): boolean {
   if (!isContentState(change.kind, change.name)) return false
+  if (isIndependentStickyControl(change.kind, change.name)) return false
   if (!isUserDirectedAction(observation)) return false
   return (
     isNavigationState(observation.actedOnKind, observation.actedOn, observation.interaction) ||
@@ -225,12 +255,23 @@ function isConstraintAction(observation: StateObservation): boolean {
   return interactionChoosesValue(observation, acted)
 }
 
+function isViewNavigationAction(observation: StateObservation): boolean {
+  const acted = observation.actedOn ?? ''
+  const navAction = isNavigationState(observation.actedOnKind, acted, observation.interaction)
+  if (!navAction) return false
+  if (isIndependentStickyControl(observation.actedOnKind, acted)) return false
+  return true
+}
+
 function isReasonableConsequence(
   change: StateChange,
   observation: StateObservation,
   directs: Array<Omit<StateChange, 'relation'>>
 ): boolean {
   if (isMirrorOf(change, directs as StateChange[])) return true
+  if (isIndependentStickyControl(change.kind, change.name) && isViewNavigationAction(observation)) {
+    return false
+  }
   if (isConsequentialContent(change, observation)) return true
   if (isDerivedViewState(change.kind, change.name) && isConstraintAction(observation)) return true
   return false

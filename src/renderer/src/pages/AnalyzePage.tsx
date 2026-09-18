@@ -23,6 +23,7 @@ export function AnalyzePage({ onResult }: Props): JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const objectUrlRef = useRef<string | null>(null)
+  const busyRef = useRef(false)
   const [player, setPlayer] = useState<HTMLVideoElement | null>(null)
   const [providers, setProviders] = useState<{
     mode: 'byok' | 'server' | null
@@ -34,6 +35,7 @@ export function AnalyzePage({ onResult }: Props): JSX.Element {
   const [result, setResult] = useState<AnalyzeSuccess | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
+  const [reportKey, setReportKey] = useState(0)
 
   const revokeUrl = (): void => {
     if (objectUrlRef.current) {
@@ -41,6 +43,20 @@ export function AnalyzePage({ onResult }: Props): JSX.Element {
       objectUrlRef.current = null
     }
   }
+
+  const resetForAnotherVideo = useCallback((): void => {
+    if (busyRef.current) return
+    revokeUrl()
+    if (inputRef.current) inputRef.current.value = ''
+    setPlayer(null)
+    setVideoUrl(null)
+    setResult(null)
+    setError(null)
+    setFileName(null)
+    setPhase('idle')
+    setProgress('Drop an MP4 (max 90 seconds).')
+    setReportKey((key) => key + 1)
+  }, [])
 
   useEffect(() => () => revokeUrl(), [])
 
@@ -57,55 +73,62 @@ export function AnalyzePage({ onResult }: Props): JSX.Element {
   }, [])
 
   const runFile = useCallback(async (file: File) => {
+    if (busyRef.current) return
+    busyRef.current = true
     setError(null)
     setResult(null)
     setPhase('validating')
     setProgress('Checking file in the browser…')
     setFileName(file.name)
 
-    if (!file.name.toLowerCase().endsWith('.mp4') && file.type !== 'video/mp4') {
-      setPhase('error')
-      setError('Unsupported file format. Upload an MP4 recording.')
-      return
-    }
-
-    revokeUrl()
-    const url = URL.createObjectURL(file)
-    objectUrlRef.current = url
-    setVideoUrl(url)
-
     try {
-      const duration = await readDuration(url)
-      if (duration < 0.4) {
-        throw new Error('Empty or too-short video. The recording has no usable duration.')
+      if (!file.name.toLowerCase().endsWith('.mp4') && file.type !== 'video/mp4') {
+        setPhase('error')
+        setError('Unsupported file format. Upload an MP4 recording.')
+        return
       }
-      if (duration > 90.25) {
-        throw new Error(`Video is longer than 90 seconds (${duration.toFixed(1)}s). Trim the recording and retry.`)
-      }
-    } catch (err) {
-      setPhase('error')
-      setError(err instanceof Error ? err.message : String(err))
-      return
-    }
 
-    try {
-      assertByokReady(providers.mode)
-      const data = await postAnalyze(file, (nextPhase, message) => {
-        setPhase(nextPhase)
-        setProgress(message)
-      })
-      setResult(data)
-      setPhase('ready')
-      setProgress('Report ready.')
-      onResult?.(data)
-    } catch (err) {
-      setPhase('error')
-      const message = err instanceof Error ? err.message : String(err)
-      if (/Failed to fetch|NetworkError/i.test(message)) {
-        setError('Network error while contacting the analysis server. Is the API running?')
-      } else {
-        setError(message)
+      revokeUrl()
+      const url = URL.createObjectURL(file)
+      objectUrlRef.current = url
+      setVideoUrl(url)
+
+      try {
+        const duration = await readDuration(url)
+        if (duration < 0.4) {
+          throw new Error('Empty or too-short video. The recording has no usable duration.')
+        }
+        if (duration > 90.25) {
+          throw new Error(`Video is longer than 90 seconds (${duration.toFixed(1)}s). Trim the recording and retry.`)
+        }
+      } catch (err) {
+        setPhase('error')
+        setError(err instanceof Error ? err.message : String(err))
+        return
       }
+
+      try {
+        assertByokReady(providers.mode)
+        const data = await postAnalyze(file, (nextPhase, message) => {
+          setPhase(nextPhase)
+          setProgress(message)
+        })
+        setResult(data)
+        setReportKey((key) => key + 1)
+        setPhase('ready')
+        setProgress('Report ready.')
+        onResult?.(data)
+      } catch (err) {
+        setPhase('error')
+        const message = err instanceof Error ? err.message : String(err)
+        if (/Failed to fetch|NetworkError/i.test(message)) {
+          setError('Network error while contacting the analysis server. Is the API running?')
+        } else {
+          setError(message)
+        }
+      }
+    } finally {
+      busyRef.current = false
     }
   }, [onResult, providers.mode])
 
@@ -172,7 +195,15 @@ export function AnalyzePage({ onResult }: Props): JSX.Element {
         )}
 
         {error && <div className="banner">{error}</div>}
-        {result && <ReportView result={result} video={player} onSeek={(ms) => void onSeek(ms)} />}
+        {result && phase === 'ready' && (
+          <ReportView
+            key={reportKey}
+            result={result}
+            video={player}
+            onSeek={(ms) => void onSeek(ms)}
+            onAnalyzeAnother={resetForAnotherVideo}
+          />
+        )}
       </div>
 
       <div className="workspace-right">

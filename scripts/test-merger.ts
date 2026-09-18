@@ -845,6 +845,173 @@ assert(
   'later direct option change and its secondary view reset must not outrank an earlier unrelated sticky change'
 )
 
+const directionalNavVsConstraint: VisualAnalysis = {
+  startingConditions: [{ timestampMs: 0, description: 'Board. Selected choice Open. Index 1.' }],
+  startingState: [
+    { name: 'choice control', value: 'All', kind: 'selection' },
+    { name: 'selected choice', value: 'All', kind: 'result_set' },
+    { name: 'index control', value: '1', kind: 'navigation' },
+    { name: 'visible rows', value: 'alpha, beta', kind: 'result_set' }
+  ],
+  stateObservations: [
+    {
+      timestampMs: 2200,
+      context: 'Board',
+      interaction: 'clicked Open',
+      actedOn: 'Open',
+      actedOnKind: 'selection',
+      stateBefore: [
+        { name: 'choice control', value: 'All', kind: 'selection' },
+        { name: 'selected choice', value: 'All', kind: 'result_set' },
+        { name: 'index control', value: '1', kind: 'navigation' },
+        { name: 'visible rows', value: 'alpha, beta', kind: 'result_set' }
+      ],
+      stateAfter: [
+        { name: 'choice control', value: 'Open', kind: 'selection' },
+        { name: 'selected choice', value: 'Open', kind: 'result_set' },
+        { name: 'index control', value: '1', kind: 'navigation' },
+        { name: 'visible rows', value: 'alpha, gamma', kind: 'result_set' }
+      ],
+      visibleEvidence: 'Open is highlighted and the selected choice reads Open',
+      confidence: 1
+    },
+    {
+      timestampMs: 7400,
+      context: 'Board',
+      interaction: 'clicked next index; selected choice changed to Any',
+      actedOn: 'next index',
+      actedOnKind: 'navigation',
+      stateBefore: [
+        { name: 'choice control', value: 'Open', kind: 'selection' },
+        { name: 'selected choice', value: 'Open', kind: 'result_set' },
+        { name: 'index control', value: '1', kind: 'navigation' },
+        { name: 'visible rows', value: 'alpha, gamma', kind: 'result_set' }
+      ],
+      stateAfter: [
+        { name: 'choice control', value: 'Open', kind: 'selection' },
+        { name: 'selected choice', value: 'Any', kind: 'result_set' },
+        { name: 'index control', value: '2', kind: 'navigation' },
+        { name: 'visible rows', value: 'delta, epsilon', kind: 'result_set' }
+      ],
+      visibleEvidence: 'Index 2 is highlighted and the selected choice reads Any',
+      confidence: 0.95
+    }
+  ],
+  visibleActions: [
+    { timestampMs: 2200, description: 'Clicked Open', type: 'user_action' },
+    { timestampMs: 7400, description: 'Clicked next index', type: 'user_action' }
+  ],
+  visibleFailures: [],
+  speakerVisualContradictions: [],
+  expectedBehaviorFromUi: { value: null, established: false },
+  unknowns: []
+}
+const directional = mergeEvidence({
+  transcript: [],
+  visual: directionalNavVsConstraint,
+  videoDurationMs: 9000
+})
+assert(directional.report.status === 'confirmed', `directional nav status ${directional.report.status}`)
+assert(directional.report.primaryFinding.outcome === 'bug_detected', 'directional nav primary')
+assert(
+  /selected choice/i.test(directional.report.primaryFinding.preState ?? '') &&
+    /Open/i.test(directional.report.primaryFinding.preState ?? '') &&
+    /next index/i.test(directional.report.primaryFinding.action ?? '') &&
+    /Any/i.test(directional.report.primaryFinding.postState ?? ''),
+  'navigation must not treat an established selected readout as a secondary view update'
+)
+assert(
+  !/index control/i.test(directional.report.primaryFinding.title) &&
+    !/visible rows/i.test(directional.report.primaryFinding.title),
+  'direct pager movement and list updates must remain suppressed'
+)
+
+const omittedStickyCarry: VisualAnalysis = {
+  startingConditions: [{ timestampMs: 0, description: 'Board. Selected choice Open.' }],
+  startingState: [
+    { name: 'selected choice', value: 'Open', kind: 'selection' },
+    { name: 'index control', value: '1', kind: 'navigation' }
+  ],
+  stateObservations: [
+    {
+      timestampMs: 5000,
+      context: 'Board',
+      interaction: 'clicked next index',
+      actedOn: 'next index',
+      actedOnKind: 'navigation',
+      stateBefore: [
+        { name: 'selected choice', value: 'All', kind: 'selection' },
+        { name: 'index control', value: '1', kind: 'navigation' }
+      ],
+      stateAfter: [
+        { name: 'index control', value: '2', kind: 'navigation' }
+      ],
+      visibleEvidence: 'Index 2 is highlighted',
+      confidence: 0.9
+    }
+  ],
+  visibleActions: [{ timestampMs: 5000, description: 'Clicked next index', type: 'user_action' }],
+  visibleFailures: [],
+  speakerVisualContradictions: [],
+  expectedBehaviorFromUi: { value: null, established: false },
+  unknowns: []
+}
+const omitted = mergeEvidence({ transcript: [], visual: omittedStickyCarry, videoDurationMs: 7000 })
+assert(
+  omitted.report.status === 'no_failure_observed',
+  `omitted sticky must be carried forward, status ${omitted.report.status}`
+)
+assert(
+  omitted.report.steps.some((step) => /Open/i.test(step.description)) ||
+    omitted.report.startingConditions.some((row) => /Open/i.test(row.text)),
+  'established selected state must remain after an observation that omitted it'
+)
+
+const hedgedClear: VisualAnalysis = {
+  startingConditions: [{ timestampMs: 0, description: 'Composer. Contact Ada West. Priority Low.' }],
+  startingState: [
+    { name: 'contact name', value: 'Ada West', kind: 'text_value' },
+    { name: 'priority', value: 'Low', kind: 'selection' },
+    { name: 'live readout', value: 'Ada West', kind: 'visibility' }
+  ],
+  stateObservations: [
+    {
+      timestampMs: 4100,
+      context: 'Composer',
+      interaction:
+        'User clears or the field loses the contact name value while typing or modifying the form',
+      actedOn: 'contact name',
+      actedOnKind: 'text_value',
+      stateBefore: [
+        { name: 'contact name', value: 'Ada West', kind: 'text_value' },
+        { name: 'priority', value: 'Low', kind: 'selection' },
+        { name: 'live readout', value: 'Ada West', kind: 'visibility' }
+      ],
+      stateAfter: [
+        { name: 'contact name', value: '(blank)', kind: 'text_value' },
+        { name: 'priority', value: 'Low', kind: 'selection' },
+        { name: 'live readout', value: '(blank)', kind: 'visibility' }
+      ],
+      visibleEvidence: 'Contact name and live readout become blank',
+      confidence: 1
+    }
+  ],
+  visibleActions: [
+    { timestampMs: 4100, description: 'Contact name value changes to blank.', type: 'change' }
+  ],
+  visibleFailures: [],
+  speakerVisualContradictions: [],
+  expectedBehaviorFromUi: { value: null, established: false },
+  unknowns: []
+}
+const hedged = mergeEvidence({ transcript: [], visual: hedgedClear, videoDurationMs: 7000 })
+assert(hedged.report.status === 'confirmed', `hedged clear status ${hedged.report.status}`)
+assert(
+  /Ada West/i.test(hedged.report.primaryFinding.preState ?? '') &&
+    /\(blank\)/i.test(hedged.report.primaryFinding.postState ?? ''),
+  'hedged clear/lose language must not count as a user-directed edit of that field'
+)
+
 console.log(
   'evidence merger ground-truth checks passed (A/B/C + generic checkout/form/silent state tracking)'
 )

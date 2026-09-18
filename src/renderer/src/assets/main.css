@@ -99,6 +99,10 @@ main {
   padding: 16px;
 }
 
+.report-actions {
+  margin-bottom: 14px;
+}
+
 .progress-card {
   display: flex;
   gap: 10px;
