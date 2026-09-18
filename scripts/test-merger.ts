@@ -540,6 +540,311 @@ assert(
   'browser unknowns must be semantically deduplicated'
 )
 
+const laterViewReset: VisualAnalysis = {
+  startingConditions: [{ timestampMs: 0, description: 'Catalog. Choice Open. Index 1.' }],
+  startingState: [
+    { name: 'status choice', value: 'All', kind: 'selection' },
+    { name: 'choice label', value: 'All', kind: 'selection' },
+    { name: 'current page', value: '1 of 2', kind: 'navigation' },
+    { name: 'result set', value: 'alpha, beta', kind: 'result_set' }
+  ],
+  stateObservations: [
+    {
+      timestampMs: 2000,
+      context: 'Catalog',
+      interaction: 'clicked Open',
+      actedOn: 'Open',
+      actedOnKind: 'selection',
+      stateBefore: [
+        { name: 'status choice', value: 'All', kind: 'selection' },
+        { name: 'choice label', value: 'All', kind: 'selection' },
+        { name: 'current page', value: '1 of 2', kind: 'navigation' },
+        { name: 'result set', value: 'alpha, beta', kind: 'result_set' }
+      ],
+      stateAfter: [
+        { name: 'status choice', value: 'Open', kind: 'selection' },
+        { name: 'choice label', value: 'Open', kind: 'selection' },
+        { name: 'current page', value: '1 of 2', kind: 'navigation' },
+        { name: 'result set', value: 'alpha, gamma', kind: 'result_set' }
+      ],
+      visibleEvidence: 'Open is highlighted and the list updates',
+      confidence: 1
+    },
+    {
+      timestampMs: 7000,
+      context: 'Catalog',
+      interaction: 'clicked next page',
+      actedOn: 'page control',
+      actedOnKind: 'navigation',
+      stateBefore: [
+        { name: 'status choice', value: 'Open', kind: 'selection' },
+        { name: 'choice label', value: 'Open', kind: 'selection' },
+        { name: 'current page', value: '1 of 2', kind: 'navigation' },
+        { name: 'result set', value: 'alpha, gamma', kind: 'result_set' }
+      ],
+      stateAfter: [
+        { name: 'status choice', value: 'Any', kind: 'selection' },
+        { name: 'choice label', value: 'Any', kind: 'selection' },
+        { name: 'current page', value: '2 of 2', kind: 'navigation' },
+        { name: 'result set', value: 'delta, epsilon', kind: 'result_set' }
+      ],
+      visibleEvidence: 'Index 2 is highlighted and the choice reads Any',
+      confidence: 1
+    },
+    {
+      timestampMs: 11000,
+      context: 'Catalog',
+      interaction: 'clicked Any',
+      actedOn: 'Any',
+      actedOnKind: 'selection',
+      stateBefore: [
+        { name: 'status choice', value: 'Any', kind: 'selection' },
+        { name: 'choice label', value: 'Any', kind: 'selection' },
+        { name: 'current page', value: '2 of 2', kind: 'navigation' },
+        { name: 'result set', value: 'delta, epsilon', kind: 'result_set' }
+      ],
+      stateAfter: [
+        { name: 'status choice', value: 'Any', kind: 'selection' },
+        { name: 'choice label', value: 'Any', kind: 'selection' },
+        { name: 'current page', value: '1 of 2', kind: 'navigation' },
+        { name: 'result set', value: 'alpha, beta, delta', kind: 'result_set' }
+      ],
+      visibleEvidence: 'Any is highlighted and the index reads 1 of 2',
+      confidence: 1
+    }
+  ],
+  visibleActions: [
+    { timestampMs: 2000, description: 'Clicked Open', type: 'user_action' },
+    { timestampMs: 7000, description: 'Clicked next page', type: 'user_action' },
+    { timestampMs: 11000, description: 'Clicked Any', type: 'user_action' }
+  ],
+  visibleFailures: [
+    {
+      timestampMs: 11000,
+      description: 'The visible value of "current page" changed from "2 of 2" to "1 of 2" after clicking Any.'
+    }
+  ],
+  speakerVisualContradictions: [],
+  expectedBehaviorFromUi: { value: null, established: false },
+  unknowns: []
+}
+const laterReset = mergeEvidence({ transcript: [], visual: laterViewReset, videoDurationMs: 13000 })
+assert(laterReset.report.status === 'confirmed', `later view-reset status ${laterReset.report.status}`)
+assert(laterReset.report.primaryFinding.outcome === 'bug_detected', 'later view-reset primary')
+assert(
+  /status choice|choice label/i.test(laterReset.report.primaryFinding.preState ?? '') &&
+    /Open/i.test(laterReset.report.primaryFinding.preState ?? '') &&
+    /next page/i.test(laterReset.report.primaryFinding.action ?? '') &&
+    /Any/i.test(laterReset.report.primaryFinding.postState ?? ''),
+  'primary must be the earlier unrelated persistent-state change, not the later view reset'
+)
+assert(
+  !/current page/i.test(laterReset.report.primaryFinding.title) &&
+    !/1 of 2/i.test(laterReset.report.primaryFinding.title),
+  'a later derived view reset must not outrank an unrelated sticky change'
+)
+
+const constraintResetsView: VisualAnalysis = {
+  startingConditions: [{ timestampMs: 0, description: 'Catalog. Choice All. Index 2.' }],
+  startingState: [
+    { name: 'status choice', value: 'Open', kind: 'selection' },
+    { name: 'current page', value: '2 of 2', kind: 'navigation' },
+    { name: 'result set', value: 'delta', kind: 'result_set' }
+  ],
+  stateObservations: [
+    {
+      timestampMs: 4000,
+      context: 'Catalog',
+      interaction: 'clicked Any',
+      actedOn: 'Any',
+      actedOnKind: 'selection',
+      stateBefore: [
+        { name: 'status choice', value: 'Open', kind: 'selection' },
+        { name: 'current page', value: '2 of 2', kind: 'navigation' },
+        { name: 'result set', value: 'delta', kind: 'result_set' }
+      ],
+      stateAfter: [
+        { name: 'status choice', value: 'Any', kind: 'selection' },
+        { name: 'current page', value: '1 of 2', kind: 'navigation' },
+        { name: 'result set', value: 'alpha, beta, delta', kind: 'result_set' }
+      ],
+      visibleEvidence: 'Any is selected, the list grows, and the index reads 1 of 2',
+      confidence: 1
+    }
+  ],
+  visibleActions: [{ timestampMs: 4000, description: 'Clicked Any', type: 'user_action' }],
+  visibleFailures: [],
+  speakerVisualContradictions: [],
+  expectedBehaviorFromUi: { value: null, established: false },
+  unknowns: []
+}
+const viewOnly = mergeEvidence({ transcript: [], visual: constraintResetsView, videoDurationMs: 7000 })
+assert(
+  viewOnly.report.status === 'no_failure_observed',
+  `constraint plus derived view reset must not be a failure, status ${viewOnly.report.status}`
+)
+assert(viewOnly.report.primaryFinding.outcome === 'no_visual_failure', 'constraint view reset primary')
+
+const unsolicitedClear: VisualAnalysis = {
+  startingConditions: [{ timestampMs: 0, description: 'Panel. Output shows Ada West.' }],
+  startingState: [
+    { name: 'source field', value: 'Ada West', kind: 'text_value' },
+    { name: 'output panel', value: 'Ada West', kind: 'result_set' }
+  ],
+  stateObservations: [
+    {
+      timestampMs: 3000,
+      context: 'Panel',
+      interaction: 'The output panel cleared automatically',
+      actedOn: 'output panel',
+      actedOnKind: 'result_set',
+      stateBefore: [
+        { name: 'source field', value: 'Ada West', kind: 'text_value' },
+        { name: 'output panel', value: 'Ada West', kind: 'result_set' }
+      ],
+      stateAfter: [
+        { name: 'source field', value: 'Ada West', kind: 'text_value' },
+        { name: 'output panel', value: '(blank)', kind: 'result_set' }
+      ],
+      visibleEvidence: 'Output panel is empty',
+      confidence: 1
+    }
+  ],
+  visibleActions: [{ timestampMs: 3000, description: 'Output panel became blank.', type: 'change' }],
+  visibleFailures: [],
+  speakerVisualContradictions: [],
+  expectedBehaviorFromUi: { value: null, established: false },
+  unknowns: []
+}
+const autoClear = mergeEvidence({ transcript: [], visual: unsolicitedClear, videoDurationMs: 5000 })
+assert(autoClear.report.status === 'confirmed', `unsolicited clear status ${autoClear.report.status}`)
+assert(
+  /output panel/i.test(autoClear.report.primaryFinding.title),
+  'an established value that disappears without a user-directed action must remain a failure'
+)
+
+const passiveEmpty: VisualAnalysis = {
+  startingConditions: [{ timestampMs: 0, description: 'Composer. Contact Ada West. Priority Low.' }],
+  startingState: [
+    { name: 'contact name', value: 'Ada West', kind: 'text_value' },
+    { name: 'priority', value: 'Low', kind: 'selection' }
+  ],
+  stateObservations: [
+    {
+      timestampMs: 3200,
+      context: 'Composer',
+      interaction: 'The contact name text field value is cleared/emptied',
+      actedOn: 'contact name',
+      actedOnKind: 'text_value',
+      stateBefore: [
+        { name: 'contact name', value: 'Ada West', kind: 'text_value' },
+        { name: 'priority', value: 'Low', kind: 'selection' }
+      ],
+      stateAfter: [
+        { name: 'contact name', value: '(blank)', kind: 'text_value' },
+        { name: 'priority', value: 'Low', kind: 'selection' }
+      ],
+      visibleEvidence: 'Contact name is empty',
+      confidence: 0.94
+    }
+  ],
+  visibleActions: [
+    { timestampMs: 3200, description: 'Contact name field value is cleared.', type: 'change' }
+  ],
+  visibleFailures: [],
+  speakerVisualContradictions: [],
+  expectedBehaviorFromUi: { value: null, established: false },
+  unknowns: []
+}
+const passive = mergeEvidence({ transcript: [], visual: passiveEmpty, videoDurationMs: 6000 })
+assert(passive.report.status === 'confirmed', `passive empty status ${passive.report.status}`)
+assert(
+  /contact name/i.test(passive.report.primaryFinding.title) &&
+    /Ada West/i.test(passive.report.primaryFinding.preState ?? ''),
+  'an established value that empties with no pointer or typing action must be a failure even if actedOn names that field'
+)
+
+const rankingWindows: VisualAnalysis = {
+  startingConditions: [{ timestampMs: 0, description: 'Wizard. Plan Bronze. Index 1 of 2.' }],
+  startingState: [
+    { name: 'billing plan', value: 'Bronze', kind: 'selection' },
+    { name: 'plan badge', value: 'Bronze', kind: 'selection' },
+    { name: 'wizard step', value: '1 of 2', kind: 'navigation' },
+    { name: 'visible rows', value: 'alpha, beta', kind: 'result_set' }
+  ],
+  stateObservations: [
+    {
+      timestampMs: 2500,
+      context: 'Wizard',
+      interaction: 'clicked next step',
+      actedOn: 'next step',
+      actedOnKind: 'navigation',
+      stateBefore: [
+        { name: 'billing plan', value: 'Bronze', kind: 'selection' },
+        { name: 'plan badge', value: 'Bronze', kind: 'selection' },
+        { name: 'wizard step', value: '1 of 2', kind: 'navigation' },
+        { name: 'visible rows', value: 'alpha, beta', kind: 'result_set' }
+      ],
+      stateAfter: [
+        { name: 'billing plan', value: 'Free', kind: 'selection' },
+        { name: 'plan badge', value: 'Free', kind: 'selection' },
+        { name: 'wizard step', value: '2 of 2', kind: 'navigation' },
+        { name: 'visible rows', value: 'gamma', kind: 'result_set' }
+      ],
+      visibleEvidence: 'Step 2 is shown and the plan badge reads Free',
+      confidence: 0.93
+    },
+    {
+      timestampMs: 9000,
+      context: 'Wizard',
+      interaction: 'clicked Monthly',
+      actedOn: 'Monthly',
+      actedOnKind: 'selection',
+      stateBefore: [
+        { name: 'billing plan', value: 'Free', kind: 'selection' },
+        { name: 'plan badge', value: 'Free', kind: 'selection' },
+        { name: 'wizard step', value: '2 of 2', kind: 'navigation' },
+        { name: 'visible rows', value: 'gamma', kind: 'result_set' }
+      ],
+      stateAfter: [
+        { name: 'billing plan', value: 'Monthly', kind: 'selection' },
+        { name: 'plan badge', value: 'Monthly', kind: 'selection' },
+        { name: 'wizard step', value: '1 of 2', kind: 'navigation' },
+        { name: 'visible rows', value: 'alpha, beta, gamma', kind: 'result_set' }
+      ],
+      visibleEvidence: 'Monthly is highlighted, the list grows, and the index reads 1 of 2',
+      confidence: 0.96
+    }
+  ],
+  visibleActions: [
+    { timestampMs: 2500, description: 'Clicked next step', type: 'user_action' },
+    { timestampMs: 9000, description: 'Clicked Monthly', type: 'user_action' }
+  ],
+  visibleFailures: [
+    {
+      timestampMs: 9000,
+      description: 'The visible value of "wizard step" changed from "2 of 2" to "1 of 2" after clicking Monthly.'
+    }
+  ],
+  speakerVisualContradictions: [],
+  expectedBehaviorFromUi: { value: null, established: false },
+  unknowns: []
+}
+const rankedWindows = mergeEvidence({ transcript: [], visual: rankingWindows, videoDurationMs: 11000 })
+assert(rankedWindows.report.status === 'confirmed', `ranked windows status ${rankedWindows.report.status}`)
+assert(
+  /billing plan|plan badge/i.test(rankedWindows.report.primaryFinding.preState ?? '') &&
+    /Bronze/i.test(rankedWindows.report.primaryFinding.preState ?? '') &&
+    /next step/i.test(rankedWindows.report.primaryFinding.action ?? '') &&
+    /Free/i.test(rankedWindows.report.primaryFinding.postState ?? ''),
+  'primary must be the earlier unrelated persistent-state change'
+)
+assert(
+  !/wizard step/i.test(rankedWindows.report.primaryFinding.title) &&
+    !/Monthly/i.test(rankedWindows.report.primaryFinding.title),
+  'later direct option change and its secondary view reset must not outrank an earlier unrelated sticky change'
+)
+
 console.log(
   'evidence merger ground-truth checks passed (A/B/C + generic checkout/form/silent state tracking)'
 )
