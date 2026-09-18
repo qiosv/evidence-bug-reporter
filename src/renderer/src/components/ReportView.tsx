@@ -68,6 +68,7 @@ export function ReportView({ result, video, onSeek, onAnalyzeAnother }: Props): 
 
   return (
     <article className="report">
+      <PrimaryFindingCard finding={finding} frame={frameAt(frames, finding.timestampMs)} onSeek={onSeek} />
       {onAnalyzeAnother && (
         <div className="report-actions">
           <button type="button" className="btn-primary" onClick={onAnalyzeAnother}>
@@ -75,7 +76,6 @@ export function ReportView({ result, video, onSeek, onAnalyzeAnother }: Props): 
           </button>
         </div>
       )}
-      <PrimaryFindingCard finding={finding} frame={frameAt(frames, finding.timestampMs)} onSeek={onSeek} />
 
       {previewItems.length > 0 && (
         <Section title="Evidence preview">

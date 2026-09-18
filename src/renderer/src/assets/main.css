@@ -100,7 +100,12 @@ main {
 }
 
 .report-actions {
-  margin-bottom: 14px;
+  margin: 14px 0 4px;
+}
+
+.report-actions .btn-primary {
+  width: 100%;
+  padding: 10px 16px;
 }
 
 .progress-card {

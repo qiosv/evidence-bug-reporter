@@ -145,7 +145,7 @@ export function AnalyzePage({ onResult }: Props): JSX.Element {
   return (
     <div className="workspace">
       <div className="workspace-left">
-        {phase !== 'ready' && (
+        {!result && (
           <div className="upload-card">
             <h2>Analyze recording</h2>
             <p>
@@ -195,7 +195,7 @@ export function AnalyzePage({ onResult }: Props): JSX.Element {
         )}
 
         {error && <div className="banner">{error}</div>}
-        {result && phase === 'ready' && (
+        {result && (
           <ReportView
             key={reportKey}
             result={result}
